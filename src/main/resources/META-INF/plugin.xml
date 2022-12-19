@@ -51,6 +51,11 @@
 
         <toolWindow id="Bazil" anchor="right" icon="/icons/bazil.png"
                     factoryClass="me.serce.bazillion.BazilToolWindowFactory"/>
+
+        <configurationType implementation="me.serce.bazillion.BazilConfigurationType"/>
+        <postStartupActivity implementation="me.serce.bazillion.NonBazilProducerSuppresser"/>
+        <runConfigurationProducer implementation="me.serce.bazillion.BazilRunConfigurationProducer"/>
+        <programRunner implementation="me.serce.bazillion.BazilDebuggerRunner"/>
     </extensions>
 
     <actions>
