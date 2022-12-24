@@ -10,13 +10,16 @@ import com.intellij.execution.actions.LazyRunConfigurationProducer
 import com.intellij.execution.configurations.*
 import com.intellij.execution.configurations.ConfigurationTypeUtil.findConfigurationType
 import com.intellij.execution.executors.DefaultDebugExecutor
+import com.intellij.execution.junit.JUnitUtil
 import com.intellij.execution.process.ProcessHandler
 import com.intellij.execution.process.ProcessHandlerFactory
 import com.intellij.execution.process.ProcessTerminatedListener
 import com.intellij.execution.runners.ExecutionEnvironment
 import com.intellij.execution.runners.ProgramRunner
 import com.intellij.execution.ui.RunContentDescriptor
+import com.intellij.openapi.module.ModuleUtil
 import com.intellij.openapi.options.SettingsEditor
+import com.intellij.openapi.project.DumbService
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.StartupActivity
 import com.intellij.openapi.util.NotNullLazyValue
@@ -176,9 +179,31 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     context: ConfigurationContext,
     sourceElement: Ref<PsiElement>
   ): Boolean {
+    if (DumbService.getInstance(context.project).isDumb) {
+      return false
+    }
+    val basePath = context.project.basePath ?: return false
+    val psiLocation = context.psiLocation ?: return false
+    val testClass = JUnitUtil.getTestClass(psiLocation) ?: return false
+    val className = testClass.name ?: return false
+    val classQualifiedName = testClass.qualifiedName ?: return false
+    val module = ModuleUtil.findModuleForPsiElement(testClass) ?: return false
 
-//    TODO("Not yet implemented")
-    return false
+    val targetRoot = ModuleUtil.getModuleDirPath(module).substringAfter(basePath)
+    val targetName =
+      if (className.contains("IntegrationTest")) "integration-tests" else "unit-tests" // Assume naming convention
+    configuration.setTarget("/$targetRoot:$targetName")
+
+    val testMethod = JUnitUtil.getTestMethod(psiLocation)
+    val testFilter =
+      if (testMethod == null)
+        "--test_filter=$classQualifiedName"
+      else
+        "--test_filter=$classQualifiedName#${testMethod.name}"
+    configuration.setFilter(testFilter)
+    configuration.name = testMethod?.name ?: className
+
+    return true
   }
 
   override fun isConfigurationFromContext(
