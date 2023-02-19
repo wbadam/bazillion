@@ -29,8 +29,9 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.UIUtil
 import com.intellij.util.xmlb.annotations.OptionTag
-import javax.swing.Box
+import java.awt.GridLayout
 import javax.swing.JComponent
+import javax.swing.JPanel
 
 class BazilConfigurationType :
   SimpleConfigurationType(
@@ -141,13 +142,15 @@ class BazilRunConfiguration(project: Project, factory: ConfigurationFactory) :
     }
 
     override fun createEditor(): JComponent {
-      val box = Box.createVerticalBox()
-      box.alignmentX = 0f
-      box.add(JBLabel("Target:", UIUtil.ComponentStyle.LARGE))
-      box.add(target)
-      box.add(JBLabel("Filter:", UIUtil.ComponentStyle.LARGE))
-      box.add(filter)
-      return box
+      val layout = GridLayout(0, 1)
+      val panel = JPanel(layout)
+
+      panel.add(JBLabel("Target:", UIUtil.ComponentStyle.LARGE))
+      panel.add(target)
+      panel.add(JBLabel("Filter:", UIUtil.ComponentStyle.LARGE))
+      panel.add(filter)
+
+      return panel
     }
   }
 }
@@ -220,7 +223,7 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
 
     val targetRoot = ModuleUtil.getModuleDirPath(module).substringAfter(basePath)
     val targetName =
-      if (className.contains("IntegrationTest")) " integration-tests" else "unit-tests" // Assume naming convention
+      if (className.contains("IntegrationTest")) "integration-tests" else "unit-tests" // Assume naming convention
     return "/$targetRoot:$targetName"
   }
 
