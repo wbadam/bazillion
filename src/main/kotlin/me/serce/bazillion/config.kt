@@ -187,11 +187,12 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     if (DumbService.getInstance(context.project).isDumb) {
       return false
     }
+    val psiLocation = context.psiLocation ?: return false
 
-    val target = getTarget(context) ?: return false
+    val target = getTarget(psiLocation) ?: return false
     configuration.setTarget(target)
 
-    val filter = getFilter(context) ?: return false
+    val filter = getFilter(psiLocation) ?: return false
     configuration.setFilter("--test_filter=${filter.toTestFilter()}")
 
     configuration.name = filter.methodName ?: filter.className
@@ -204,36 +205,31 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     context: ConfigurationContext
   ): Boolean {
     val psiLocation = context.psiLocation ?: return false
-    return CachedValuesManager.getCachedValue(psiLocation) {
-      CachedValueProvider.Result.create(
-        doIsConfigurationFromContext(configuration, context)
-      )
-    }
-  }
 
-  private fun doIsConfigurationFromContext(
-    configuration: BazilRunConfiguration,
-    context: ConfigurationContext
-  ): Boolean {
-    val target = getTarget(context)
+    val target = getTarget(psiLocation)
     if (configuration.getTarget() != target) {
       return false
     }
 
     val testFilter = configuration.getFilter()?.substringAfter("--test_filter=")
-    if (testFilter != getFilter(context)?.toTestFilter()) {
+    if (testFilter != getFilter(psiLocation)?.toTestFilter()) {
       return false
     }
 
     return true
   }
 
-  private fun getTarget(context: ConfigurationContext): String? {
-    val psiLocation = context.psiLocation ?: return null
+  private fun getTarget(psiLocation: PsiElement): String? {
+    return CachedValuesManager.getCachedValue(psiLocation) {
+      CachedValueProvider.Result.create(doGetTarget(psiLocation))
+    }
+  }
+
+  private fun doGetTarget(psiLocation: PsiElement): String? {
     val testClass = JUnitUtil.getTestClass(psiLocation) ?: return null
     val className = testClass.name ?: return null
     val module = ModuleUtil.findModuleForPsiElement(testClass) ?: return null
-    val basePath = context.project.basePath ?: return null
+    val basePath = psiLocation.project.basePath ?: return null
 
     val targetRoot = ModuleUtil.getModuleDirPath(module).substringAfter(basePath)
     val targetName =
@@ -241,8 +237,13 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     return "/$targetRoot:$targetName"
   }
 
-  private fun getFilter(context: ConfigurationContext): Filter? {
-    val psiLocation = context.psiLocation ?: return null
+  private fun getFilter(psiLocation: PsiElement): Filter? {
+    return CachedValuesManager.getCachedValue(psiLocation) {
+      CachedValueProvider.Result.create(doGetFilter(psiLocation))
+    }
+  }
+
+  private fun doGetFilter(psiLocation: PsiElement): Filter? {
     val testClass = JUnitUtil.getTestClass(psiLocation) ?: return null
     val className = testClass.name ?: return null
     val classQualifiedName = testClass.qualifiedName ?: return null
