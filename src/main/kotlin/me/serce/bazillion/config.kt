@@ -27,6 +27,7 @@ import com.intellij.openapi.util.Ref
 import com.intellij.psi.PsiElement
 import com.intellij.psi.util.CachedValueProvider
 import com.intellij.psi.util.CachedValuesManager
+import com.intellij.psi.util.PsiModificationTracker
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.UIUtil
@@ -221,7 +222,7 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
 
   private fun getTarget(psiLocation: PsiElement): String? {
     return CachedValuesManager.getCachedValue(psiLocation) {
-      CachedValueProvider.Result.create(doGetTarget(psiLocation))
+      CachedValueProvider.Result.create(doGetTarget(psiLocation), PsiModificationTracker.MODIFICATION_COUNT)
     }
   }
 
@@ -239,7 +240,7 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
 
   private fun getFilter(psiLocation: PsiElement): Filter? {
     return CachedValuesManager.getCachedValue(psiLocation) {
-      CachedValueProvider.Result.create(doGetFilter(psiLocation))
+      CachedValueProvider.Result.create(doGetFilter(psiLocation), PsiModificationTracker.MODIFICATION_COUNT)
     }
   }
 
