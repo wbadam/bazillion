@@ -182,26 +182,14 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     if (DumbService.getInstance(context.project).isDumb) {
       return false
     }
-    val basePath = context.project.basePath ?: return false
-    val psiLocation = context.psiLocation ?: return false
-    val testClass = JUnitUtil.getTestClass(psiLocation) ?: return false
-    val className = testClass.name ?: return false
-    val classQualifiedName = testClass.qualifiedName ?: return false
-    val module = ModuleUtil.findModuleForPsiElement(testClass) ?: return false
 
-    val targetRoot = ModuleUtil.getModuleDirPath(module).substringAfter(basePath)
-    val targetName =
-      if (className.contains("IntegrationTest")) "integration-tests" else "unit-tests" // Assume naming convention
-    configuration.setTarget("/$targetRoot:$targetName")
+    val target = getTarget(context) ?: return false
+    configuration.setTarget(target)
 
-    val testMethod = JUnitUtil.getTestMethod(psiLocation)
-    val testFilter =
-      if (testMethod == null)
-        "--test_filter=$classQualifiedName"
-      else
-        "--test_filter=$classQualifiedName#${testMethod.name}"
-    configuration.setFilter(testFilter)
-    configuration.name = testMethod?.name ?: className
+    val filter = getFilter(context) ?: return false
+    configuration.setFilter("--test_filter=${filter.toTestFilter()}")
+
+    configuration.name = filter.methodName ?: filter.className
 
     return true
   }
@@ -210,8 +198,40 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
     configuration: BazilRunConfiguration,
     context: ConfigurationContext
   ): Boolean {
-//    TODO("Not yet implemented")
-    return false
+    val target = getTarget(context)
+    if (configuration.getTarget() != target) {
+      return false
+    }
+
+    val testFilter = configuration.getFilter()?.substringAfter("--test_filter=")
+    if (testFilter != getFilter(context)?.toTestFilter()) {
+      return false
+    }
+
+    return true
+  }
+
+  private fun getTarget(context: ConfigurationContext): String? {
+    val psiLocation = context.psiLocation ?: return null
+    val testClass = JUnitUtil.getTestClass(psiLocation) ?: return null
+    val className = testClass.name ?: return null
+    val module = ModuleUtil.findModuleForPsiElement(testClass) ?: return null
+    val basePath = context.project.basePath ?: return null
+
+    val targetRoot = ModuleUtil.getModuleDirPath(module).substringAfter(basePath)
+    val targetName =
+      if (className.contains("IntegrationTest")) " integration-tests" else "unit-tests" // Assume naming convention
+    return "/$targetRoot:$targetName"
+  }
+
+  private fun getFilter(context: ConfigurationContext): Filter? {
+    val psiLocation = context.psiLocation ?: return null
+    val testClass = JUnitUtil.getTestClass(psiLocation) ?: return null
+    val className = testClass.name ?: return null
+    val classQualifiedName = testClass.qualifiedName ?: return null
+
+    val testMethod = JUnitUtil.getTestMethod(psiLocation)
+    return Filter(className, classQualifiedName, testMethod?.name)
   }
 
   override fun isPreferredConfiguration(self: ConfigurationFromContext, other: ConfigurationFromContext): Boolean {
@@ -220,6 +240,27 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
 
   override fun shouldReplace(self: ConfigurationFromContext, other: ConfigurationFromContext): Boolean {
     return isBazilProject(self.configuration.project) && !other.isProducedBy(BazilRunConfigurationProducer::class.java)
+  }
+
+  data class Filter(val className: String, val classQualifiedName: String, val methodName: String?) {
+    fun toTestFilter(): String {
+      return if (methodName == null) {
+        classQualifiedName
+      } else {
+        "${classQualifiedName}#${methodName}"
+      }
+    }
+
+    companion object {
+      fun fromTestFilter(testFilter: String): Filter? {
+        val classQualifiedName = testFilter.substringBefore('#')
+        if (classQualifiedName.isEmpty()) {
+          return null
+        }
+        val methodName = if (testFilter.contains('#')) testFilter.substringAfter('#') else null
+        return Filter(classQualifiedName.substringAfterLast('.'), classQualifiedName, methodName)
+      }
+    }
   }
 }
 
