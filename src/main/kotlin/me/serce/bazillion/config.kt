@@ -25,6 +25,8 @@ import com.intellij.openapi.startup.StartupActivity
 import com.intellij.openapi.util.NotNullLazyValue
 import com.intellij.openapi.util.Ref
 import com.intellij.psi.PsiElement
+import com.intellij.psi.util.CachedValueProvider
+import com.intellij.psi.util.CachedValuesManager
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.components.JBTextField
 import com.intellij.util.ui.UIUtil
@@ -198,6 +200,18 @@ class BazilRunConfigurationProducer : LazyRunConfigurationProducer<BazilRunConfi
   }
 
   override fun isConfigurationFromContext(
+    configuration: BazilRunConfiguration,
+    context: ConfigurationContext
+  ): Boolean {
+    val psiLocation = context.psiLocation ?: return false
+    return CachedValuesManager.getCachedValue(psiLocation) {
+      CachedValueProvider.Result.create(
+        doIsConfigurationFromContext(configuration, context)
+      )
+    }
+  }
+
+  private fun doIsConfigurationFromContext(
     configuration: BazilRunConfiguration,
     context: ConfigurationContext
   ): Boolean {
